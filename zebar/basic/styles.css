@@ -1,0 +1,162 @@
+/**
+* Import the Nerdfonts icon font.
+* Ref https://www.nerdfonts.com/cheat-sheet for a cheatsheet of available Nerdfonts icons.
+*/
+@import 'https://www.nerdfonts.com/assets/css/webfont.css';
+
+:root {
+  --color-1: #f7faab;
+  --color-2: #ff8b00;
+  --color-3: #6cb680;
+  --bg: #000;
+}
+
+* {
+  box-sizing: border-box;
+  outline: none;
+}
+
+i {
+  color: var(--color-3);
+}
+
+body {
+  color: #fff;
+  font-family: 'JetBrains Mono', Consolas;
+  font-size: 12px;
+  overflow: hidden;
+}
+
+div,
+span,
+p {
+  cursor: default;
+  user-select: none;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+#root {
+  background: var(--bg);
+}
+
+.app {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  height: 100%;
+  padding: 0 1.5vw;
+}
+
+.left,
+.right {
+  display: flex;
+  align-items: center;
+}
+
+.strands {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  height: 32px;
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 5% 95%,
+    transparent
+  );
+}
+
+.date {
+  position: absolute;
+  right: calc(50% + 300px + 1.5vw);
+}
+
+.suntime {
+  position: absolute;
+  left: calc(50% + 300px + 1.5vw);
+}
+
+.right {
+  gap: 20px;
+}
+
+.workspaces,
+.glazewm-buttons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.workspace {
+  background: var(--bg);
+  border: 1px solid var(--color-3);
+  box-shadow: inset 0 0 4px 1px var(--color-3);
+  color: #fff;
+  height: 20px;
+  padding: 3px 16px 0 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 150ms ease-out;
+
+  &.displayed {
+    border: 1px solid var(--color-2);
+    box-shadow: inset 0 0 4px 1px var(--color-2);
+  }
+  
+  &.focused,
+  &:hover {
+    border: 1px solid var(--color-1);
+    box-shadow: inset 0 0 4px 1px var(--color-1);
+  }
+}
+
+.binding-mode,
+.tiling-direction,
+.paused-button {
+  background: var(--bg);
+  border: 1px solid var(--color-3);
+  box-shadow: inset 0 0 4px 1px var(--color-3);
+  color: #fff;
+  border-radius: 2px;
+  height: 20px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.tiling-direction {
+  padding: 0 16px;
+}
+
+.binding-mode,
+.paused-button {
+  padding: 3px 16px 0 16px;
+}
+
+.network,
+.memory,
+.cpu {
+  display: flex;
+  align-items: center;
+}
+
+.network.has-text,
+.memory.has-text,
+.cpu.has-text {
+  gap: 6px;
+}
+
+.text {
+  white-space: nowrap;
+  padding-top: 3px;
+}
+
+.cpu .high-usage {
+  color: var(--color-2);
+}

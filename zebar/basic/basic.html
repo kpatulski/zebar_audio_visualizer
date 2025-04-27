@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!-- Custom styles. -->
+    <link rel="stylesheet" type="text/css" href="./styles.css" />
+
+    <!-- Allows React to be run buildless via "text/babel" script below. -->
+    <script
+      src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"
+      integrity="sha256-aS0B0wnsaDByLfE16h4MDCP1fQFccysd1YWOcV+gbBo="
+      crossorigin="anonymous"
+    ></script>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+      import React, {
+        useState,
+        useEffect,
+        useRef,
+      } from 'https://esm.sh/react@18?dev';
+      import { createRoot } from 'https://esm.sh/react-dom@18/client?dev';
+      import * as zebar from 'https://esm.sh/zebar@2';
+      import SunCalc from 'https://esm.sh/suncalc';
+
+      const providers = zebar.createProviderGroup({
+        network: { type: 'network' },
+        glazewm: { type: 'glazewm' },
+        cpu: { type: 'cpu' },
+        date: { type: 'date', formatting: 'EEE dd.LL.yyyy TT' },
+        memory: { type: 'memory' },
+      });
+
+      const lat = 40.70;
+      const lon = -74.00;
+
+      createRoot(document.getElementById('root')).render(<App />);
+
+      function AudioVisualizer() {
+        const canvasRef = useRef(null);
+        const animationFrameRef = useRef(null);
+
+        useEffect(() => {
+          let audioContext;
+          let analyser;
+          let dataArray;
+          let source;
+
+          async function setupAudio() {
+            try {
+              const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+              audioContext = new (window.AudioContext || window.webkitAudioContext)();
+              analyser = audioContext.createAnalyser();
+              analyser.fftSize = 512;
+              const bufferLength = analyser.frequencyBinCount;
+              dataArray = new Uint8Array(bufferLength);
+
+              source = audioContext.createMediaStreamSource(stream);
+              source.connect(analyser);
+              draw();
+            } catch (err) {
+              console.error('Error accessing microphone:', err);
+            }
+          }
+
+          function draw() {
+            const canvas = canvasRef.current;
+            const ctx = canvas.getContext('2d');
+            analyser.getByteFrequencyData(dataArray);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const numPoints = 128;
+            const sampleRate = audioContext.sampleRate;
+            const nyquist = sampleRate / 2;
+            const points = [];
+
+            // For each point, determine the frequency band using the function: f(x) = 1.25x^2 + 2x
+            for (let i = 0; i < numPoints; i++) {
+              const x1 = i + 1; // lower boundary for this band
+              const x2 = i + 2; // upper boundary for this band
+              const freqStart = 1.25 * Math.pow(x1, 2) + 2 * x1;
+              const freqEnd = 1.25 * Math.pow(x2, 2) + 2 * x2;
+              const cappedFreqEnd = Math.min(freqEnd, nyquist);
+              const binStart = Math.floor((freqStart / nyquist) * dataArray.length);
+              const binEnd = Math.ceil((cappedFreqEnd / nyquist) * dataArray.length);
+
+              let sum = 0;
+              let count = 0;
+              for (let j = binStart; j < binEnd; j++) {
+                sum += dataArray[j] || 0;
+                count++;
+              }
+              const value = count > 0 ? sum / count : 0;
+              points.push(value);
+            }
+
+            const spacing = canvas.width / (numPoints - 1);
+            const centerY = canvas.height / 2;
+
+            // Function to draw one strand given its options and color.
+            function drawStrand(options, color) {
+              const wavePoints = [];
+              for (let i = 0; i < numPoints; i++) {
+                // Map the computed point to an amplitude (scaled to half the canvas height)
+                const amplitude = (points[i] / 255) * (canvas.height / 2);
+
+                // Base offset: a combination of two sine waves.
+                const baseOffset =
+                  ( Math.sin(i * options.base.mult1 - performance.now() * options.base.time1) +
+                    Math.sin(i * options.base.mult2 - performance.now() * options.base.time2)
+                  ) * options.base.scale;
+
+                // Extra offset: a combination of two sine waves for chaotic modulation,
+                // scaled by the amplitude.
+                const extraOffset =
+                  ( ( Math.sin(i * options.extra.mult1 - performance.now() * options.extra.time1) +
+                      Math.sin(i * options.extra.mult2 - performance.now() * options.extra.time2)
+                    ) / 2 ) * amplitude * options.extra.scale;
+
+                const x = i * spacing;
+                const y = centerY + baseOffset + extraOffset;
+                wavePoints.push({ x, y });
+              }
+
+              // Draw a smooth curve using quadraticCurveTo.
+              ctx.beginPath();
+              ctx.moveTo(wavePoints[0].x, wavePoints[0].y);
+              for (let i = 1; i < wavePoints.length; i++) {
+                const midX = (wavePoints[i - 1].x + wavePoints[i].x) / 2;
+                const midY = (wavePoints[i - 1].y + wavePoints[i].y) / 2;
+                ctx.quadraticCurveTo(wavePoints[i - 1].x, wavePoints[i - 1].y, midX, midY);
+              }
+              const last = wavePoints[wavePoints.length - 1];
+              ctx.lineTo(last.x, last.y);
+
+              ctx.strokeStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]})`;
+              ctx.lineWidth = 2;
+              ctx.shadowColor = `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0.8)`;
+              ctx.shadowBlur = 10;
+              ctx.stroke();
+            }
+
+            const strand1Options = {
+              base: { mult1: 0.15, time1: 0.001, mult2: 0.1, time2: 0.0015, scale: 1.5 },
+              extra: { mult1: 0.45, time1: 0.003, mult2: 0.3, time2: 0.0045, scale: 0.9 }
+            };
+
+            const strand2Options = {
+              base: { mult1: 0.17, time1: 0.0008, mult2: 0.12, time2: 0.0012, scale: 1.2 },
+              extra: { mult1: 0.5, time1: 0.004, mult2: 0.35, time2: 0.006, scale: 1.0 }
+            };
+
+            const strand3Options = {
+              base: { mult1: 0.13, time1: 0.0012, mult2: 0.09, time2: 0.0018, scale: 1.8 },
+              extra: { mult1: 0.4, time1: 0.0027, mult2: 0.28, time2: 0.0042, scale: 0.8 }
+            };
+
+            drawStrand(strand1Options, [18, 160, 140]);
+            drawStrand(strand2Options, [0, 240, 200]);
+            drawStrand(strand3Options, [0, 200, 240]);
+
+            animationFrameRef.current = requestAnimationFrame(draw);
+          }
+
+          setupAudio();
+
+          // Cleanup on component unmount
+          return () => {
+            cancelAnimationFrame(animationFrameRef.current);
+            if (audioContext) {
+              audioContext.close();
+            }
+          };
+        }, []);
+
+        return (
+          <canvas
+            ref={canvasRef}
+            width={600}
+            height={32}
+            className="strands"
+          />
+        );
+      }
+
+      function App() {
+        const [output, setOutput] = useState(providers.outputMap);
+        const [sunrise, setSunrise] = useState(null);
+        const [sunset, setSunset] = useState(null);
+
+        useEffect(() => {
+          providers.onOutput(() => setOutput(providers.outputMap));
+
+          const now = new Date();
+          const times = SunCalc.getTimes(now, lat, lon);
+
+          setSunrise(times.sunrise.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" }));
+          setSunset(times.sunset.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" }));
+        }, []);
+
+        // Get icon to show for current network status.
+        function getNetworkIcon(networkOutput) {
+          switch (networkOutput.defaultInterface?.type) {
+            case 'ethernet':
+              return <i className="nf nf-md-ethernet_cable"></i>;
+            case 'wifi':
+              if (networkOutput.defaultGateway?.signalStrength >= 80) {
+                return <i className="nf nf-md-wifi_strength_4"></i>;
+              } else if (
+                networkOutput.defaultGateway?.signalStrength >= 65
+              ) {
+                return <i className="nf nf-md-wifi_strength_3"></i>;
+              } else if (
+                networkOutput.defaultGateway?.signalStrength >= 40
+              ) {
+                return <i className="nf nf-md-wifi_strength_2"></i>;
+              } else if (
+                networkOutput.defaultGateway?.signalStrength >= 25
+              ) {
+                return <i className="nf nf-md-wifi_strength_1"></i>;
+              } else {
+                return <i className="nf nf-md-wifi_strength_outline"></i>;
+              }
+            default:
+              return (
+                <i className="nf nf-md-wifi_strength_off_outline"></i>
+              );
+          }
+        }
+
+        return (
+          <div className="app">
+            <div className="left">
+              {output.glazewm && (
+                <div className="workspaces">
+                  {output.glazewm.currentWorkspaces.map(workspace => (
+                    <button
+                      className={`workspace ${workspace.hasFocus && 'focused'} ${workspace.isDisplayed && 'displayed'}`}
+                      onClick={() =>
+                        output.glazewm.runCommand(
+                          `focus --workspace ${workspace.name}`,
+                        )
+                      }
+                      key={workspace.name}
+                    >
+                      {workspace.displayName ?? workspace.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="date text">{output.date?.formatted}</div>
+            <AudioVisualizer />
+            <div className="suntime text">{sunrise} {sunset}</div>
+
+            <div className="right">
+              <div className="glazewm-buttons">{output.glazewm && (
+                <>
+                  {output.glazewm.isPaused && (
+                    <button
+                      className="paused-button"
+                      onClick={() => output.glazewm.runCommand('wm-toggle-pause')}
+                    >
+                      PAUSED
+                    </button>
+                  )}
+                  {output.glazewm.bindingModes.map(bindingMode => (
+                    <button
+                      className="binding-mode"
+                      key={bindingMode.name}
+                      onClick={() =>
+                        output.glazewm.runCommand(
+                          `wm-disable-binding-mode --name ${bindingMode.name}`,
+                        )
+                      }
+                    >
+                      {bindingMode.displayName ?? bindingMode.name}
+                    </button>
+                  ))}
+
+                  <button
+                    className={`tiling-direction nf ${output.glazewm.tilingDirection === 'horizontal' ? 'nf-md-swap_horizontal' : 'nf-md-swap_vertical'}`}
+                    onClick={() =>
+                      output.glazewm.runCommand('toggle-tiling-direction')
+                    }
+                  ></button>
+                </>
+              )}
+              </div>
+
+              {output.network && (
+                <div className={`network ${output.network.defaultGateway?.ssid ? 'has-text' : ''}`}>
+                  {getNetworkIcon(output.network)}
+                  {output.network.defaultGateway?.ssid && (
+                    <span className="text">{output.network.defaultGateway.ssid}</span>
+                  )}
+                </div>
+              )}
+
+              {output.memory && (
+                <div className={`memory ${Math.round(output.memory.usage) ? 'has-text' : ''}`}>
+                  <i className="nf nf-fae-chip"></i>
+                  <span className="text">{Math.round(output.memory.usage)}%</span>
+                </div>
+              )}
+
+              {output.cpu && (
+                <div className={`cpu ${Math.round(output.cpu.usage) ? 'has-text' : ''}`}>
+                  <i className="nf nf-oct-cpu"></i>
+                  <span className={`text ${output.cpu.usage > 85 ? 'high-usage' : ''}`}>
+                    {Math.round(output.cpu.usage)}%
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      }
+    </script>
+  </body>
+</html>
