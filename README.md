@@ -1,5 +1,8 @@
 # zebar_audio_visualizer
 
+![ss_1](zebar_visuals/ss_1.png)
+![ss_2](zebar_visuals/ss_2.png)
+
 ## Hi, welcome to my Zebar profile!
 
 This is my custom [Zebar](https://github.com/glzr-io/zebar) profile with a Death Stranding-style audio visualizer.
