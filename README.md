@@ -25,3 +25,8 @@ Therefore, a simple workaround is needed:
 
 That's it! Now Zebar will fetch your computer's live audio.
 Note: Stereo Mix only works when you're outputting to an analog device (like a headphone or speaker jack, not HDMI).
+
+![video](zebar_visuals/video.mp4)
+
+The wallpaper comes from [Kojima Productions Death Stranding Year-Round Photo Mode Campaign December](https://kojimaproductions.jp/en/DSPhotomodeCP_Dec).
+The creator is [Ari from X](https://x.com/VrPhotoGamess/status/1742876835761856579).
